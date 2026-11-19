@@ -4,7 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-raylib = "6.0.0"
+# sdl3 bindings; `ttf` enables text rendering
+sdl3 = { version = "0.22.1", features = ["ttf", "mixer"] }
+# build sdl3_ttf/sdl3_mixer locally since they are not installed system-wide
+sdl3-ttf-sys = { version = "0.7.1", features = ["build-from-source", "sdlttf-vendored"] }
+sdl3-mixer-sys = { version = "0.7.0", features = ["build-from-source", "sdlmixer-vendored"] }
 
 [[bin]]
 name = "game"

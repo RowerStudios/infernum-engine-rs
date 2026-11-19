@@ -1,18 +1,116 @@
-use raylib::prelude::*;
+use crate::modules::ui::{Button, TextTexture};
+use sdl3::pixels::Color;
+use sdl3::render::{Canvas, TextureCreator};
+use sdl3::ttf::Font;
+use sdl3::video::{Window, WindowContext};
+use std::error::Error;
 
-pub fn display(raylib: &mut RaylibHandle, thread: &RaylibThread) {
-    let centre_x = raylib.get_screen_width() / 2;
-    let centre_y = raylib.get_screen_height() / 2;
-    let example_text = "hello world!";
-    let ft_size = 30;
-    let mut canvas = raylib.begin_drawing(thread);
-    let text_width = canvas.measure_text(example_text, ft_size);
-    canvas.clear_background(Color::BLACK);
-    canvas.draw_text(
-        example_text,
-        centre_x - text_width / 2,
-        centre_y - ft_size / 2,
-        ft_size,
-        Color::WHITE,
+const BUTTON_WIDTH: f32 = 200.0;
+const BUTTON_HEIGHT: f32 = 60.0;
+const BUTTON_GAP: f32 = 80.0;
+const TITLE_MARGIN: f32 = 100.0;
+
+pub enum MenuAction {
+    None,
+    Play,
+    Quit,
+    HoverPlay,
+    HoverQuit,
+}
+
+// remembers last hover to catch enter events
+pub struct MenuState {
+    play_hovered: bool,
+    quit_hovered: bool,
+}
+
+impl MenuState {
+    pub fn new() -> Self {
+        Self {
+            play_hovered: false,
+            quit_hovered: false,
+        }
+    }
+}
+
+// pre-rendered text for the menu
+pub struct MenuTextures<'a> {
+    pub title: TextTexture<'a>,
+    pub play: TextTexture<'a>,
+    pub quit: TextTexture<'a>,
+}
+
+impl<'a> MenuTextures<'a> {
+    pub fn new(
+        creator: &'a TextureCreator<WindowContext>,
+        title_font: &Font,
+        button_font: &Font,
+    ) -> Result<Self, Box<dyn Error>> {
+        Ok(Self {
+            title: TextTexture::new(creator, title_font, "inferno", Color::WHITE)?,
+            play: TextTexture::new(creator, button_font, "play", Color::WHITE)?,
+            quit: TextTexture::new(creator, button_font, "quit", Color::WHITE)?,
+        })
+    }
+}
+
+// draw menu, handle input, return the clicked action
+pub fn display(
+    canvas: &mut Canvas<Window>,
+    mouse_x: f32,
+    mouse_y: f32,
+    click: Option<(f32, f32)>,
+    textures: &MenuTextures<'_>,
+    state: &mut MenuState,
+) -> Result<MenuAction, Box<dyn Error>> {
+    let (screen_w, screen_h) = canvas.output_size()?;
+    let center_x = screen_w as f32 / 2.0;
+    let center_y = screen_h as f32 / 2.0;
+    let button_x = center_x - BUTTON_WIDTH / 2.0;
+    let play = Button::new(
+        button_x,
+        center_y - BUTTON_GAP / 2.0 - BUTTON_HEIGHT,
+        BUTTON_WIDTH,
+        BUTTON_HEIGHT,
     );
+    let quit = Button::new(
+        button_x,
+        center_y + BUTTON_GAP / 2.0,
+        BUTTON_WIDTH,
+        BUTTON_HEIGHT,
+    );
+
+    let play_hovered = play.contains(mouse_x, mouse_y);
+    let quit_hovered = quit.contains(mouse_x, mouse_y);
+
+    let mut action = MenuAction::None;
+    if play_hovered && !state.play_hovered {
+        action = MenuAction::HoverPlay;
+    } else if quit_hovered && !state.quit_hovered {
+        action = MenuAction::HoverQuit;
+    }
+
+    if let Some((x, y)) = click {
+        if play.contains(x, y) {
+            println!(">> play clicked!");
+            action = MenuAction::Play;
+        } else if quit.contains(x, y) {
+            action = MenuAction::Quit;
+        }
+    }
+
+    state.play_hovered = play_hovered;
+    state.quit_hovered = quit_hovered;
+
+    canvas.set_draw_color(Color::BLACK);
+    canvas.clear();
+    textures.title.draw_at(
+        canvas,
+        center_x - textures.title.width() as f32 / 2.0,
+        play.bounds.y - TITLE_MARGIN,
+    )?;
+    play.draw(canvas, play_hovered, &textures.play)?;
+    quit.draw(canvas, quit_hovered, &textures.quit)?;
+    canvas.present();
+    Ok(action)
 }
