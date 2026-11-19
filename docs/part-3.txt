@@ -1,0 +1,20 @@
+MODULES.
+
+usage of MODULES is easier than i thought.
+
+just make a folder that contains all module script (in c++ we refer it as headers)
+
+now define the modules 
+mod modules {
+    pub mod mainmenu; -- can be anything
+}
+
+now since mainmenu is a public module the functions inside should be public
+so that we can call the function from here..
+pub fn display(raylib: &mut RaylibHandle, thread: &RaylibThread)
+
+you should pass raylib and thread to the function...
+
+modules::mainmenu::display(&mut rl, &thread);
+
+Thats it!

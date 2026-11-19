@@ -1,26 +1,16 @@
 use raylib::prelude::*;
 
+mod modules {
+    pub mod mainmenu;
+}
+
 fn main() {
-    let (mut raylib, thread) = raylib::init()
+    let (mut rl, thread) = raylib::init()
         .size(800, 600)
         .title("hello")
-    .build();
+        .build();
 
-    let centre_x = raylib.get_screen_width() / 2;
-    let centre_y = raylib.get_screen_height() / 2;
-    let example_text = "hello world!";
-    let ft_size = 30;
-
-    while !raylib.window_should_close() {
-        let mut canvas = raylib.begin_drawing(&thread);
-        let text_width = canvas.measure_text(example_text, ft_size);
-        canvas.clear_background(Color::BLACK);
-        canvas.draw_text(
-            example_text,
-            centre_x - text_width / 2,
-            centre_y - ft_size / 2,
-            ft_size,
-            Color::WHITE,
-        );
+    while !rl.window_should_close() {
+        modules::mainmenu::display(&mut rl, &thread);
     }
 }
