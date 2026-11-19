@@ -1,0 +1,27 @@
+now here is the clever part.
+
+we will use while !raylib.window_should_close()
+to keep polling until the window quits.
+actions like (clicking on X, pressing a quit shortcut, sigterm) can make the window_should_close() true.
+
+so thats why we use !raylib.window_should_close() 
+cuz it will keep looping until the window window_should_close function becomes true
+
+and now
+
+lets make so that the game render..
+
+inside the loop. we add
+
+let mut canvas = raylib.begin_drawing(&thread); -- KEEP mut SO THAT THE FUNCTIONS CAN BE USABLE
+
+here the canvas is the main drawing thingy.
+canvas lets us modify the window to our liking.
+
+and canvas also lets us render things like text , colors ext...
+
+for example.. 
+
+to render a background color >> canvas.clear_background(Color::BLACK);
+
+by this the canvas can render the color we put in the params

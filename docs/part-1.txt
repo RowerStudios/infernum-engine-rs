@@ -1,0 +1,25 @@
+first we import the raylib basic functions.
+
+>> use raylib::prelude::*; -- ln 1
+
+next we do stuff on main function.
+
+we are going to make a mutable variable called raylib and a thread.
+
+using multi variable..
+
+let (mut raylib, thread) = raylib::init() -- ln 3
+
+this is not the end..
+    we use .size to specify the size of the window (optional)
+        .size(800, 600) -- ln 5
+
+    and then title for the window.
+        .title("hello") -- ln 6
+    NOTE: MUST NEED .title FOR THE VARIABLE TO FUNCTION!!
+
+    and then finally we build the window
+        .build(); --ln 7
+
+Thats all!
+You can go proceed to build and you will see a black window with the title you set!
