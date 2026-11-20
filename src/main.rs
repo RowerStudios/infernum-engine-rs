@@ -20,15 +20,14 @@ mod modules {
 
 use crate::modules::audio::Sound;
 use crate::modules::config::{Config, WindowMode};
-use crate::modules::fonts::load_fonts;
+use crate::modules::fonts::load_font;
 use crate::modules::functions::fade::{Fade, FadeDirection};
 use crate::modules::mainmenu::{MenuAction, MenuState, MenuTextures, display};
 use crate::modules::thirdparty::discord::Discord;
 
 const WINDOW_TITLE: &str = "inferno";
 const CONFIG_PATH: &str = "src/config.toml";
-const FONT_DIR: &str = "src/fonts";
-const TITLE_FONT_SIZE: f32 = 40.0;
+const FONT: &str = "src/fonts/audiowide.ttf";
 const BUTTON_FONT_SIZE: f32 = 24.0;
 
 type GameResult<T> = Result<T, Box<dyn std::error::Error>>;
@@ -123,14 +122,10 @@ fn main() -> GameResult<()> {
         canvas.window_mut().set_fullscreen(true)?;
     }
     let texture_creator = canvas.texture_creator();
-    let title_fonts = load_fonts(&ttf, FONT_DIR, TITLE_FONT_SIZE);
-    let button_fonts = load_fonts(&ttf, FONT_DIR, BUTTON_FONT_SIZE);
-    if title_fonts.is_empty() || button_fonts.is_empty() {
-        return Err(format!("no .ttf fonts found in '{FONT_DIR}'").into());
-    }
-    println!(">> loaded {} fonts!", title_fonts.len() + button_fonts.len());
+    let button_font = load_font(&ttf, FONT, BUTTON_FONT_SIZE)?;
+    println!(">> loaded font: {FONT}");
     // render text once, not every frame
-    let mut textures = MenuTextures::new(&texture_creator, &title_fonts[0], &button_fonts[0])?;
+    let mut textures = MenuTextures::new(&texture_creator, &button_font)?;
     let mut fade = Fade::new(800, FadeDirection::In, None);
     fade.start();
     println!(">> starting game loop..");

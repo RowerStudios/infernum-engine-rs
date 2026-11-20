@@ -152,6 +152,50 @@ impl<'a> ButtonArt<'a> {
     }
 }
 
+// png texture with its native size
+pub struct ImageTexture<'a> {
+    texture: Texture<'a>,
+    width: u32,
+    height: u32,
+}
+
+impl<'a> ImageTexture<'a> {
+    pub fn load(
+        creator: &'a TextureCreator<WindowContext>,
+        path: &str,
+    ) -> Result<Self, Box<dyn Error>> {
+        let texture = load_png(creator, path)?;
+        let query = texture.query();
+        Ok(Self {
+            texture,
+            width: query.width,
+            height: query.height,
+        })
+    }
+
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+
+    pub fn height(&self) -> u32 {
+        self.height
+    }
+
+    // draw scaled into a rect
+    pub fn draw_rect(
+        &self,
+        canvas: &mut Canvas<Window>,
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+    ) -> Result<(), Box<dyn Error>> {
+        let dst = FRect::new(x, y, w, h);
+        canvas.copy(&self.texture, None, Some(dst))?;
+        Ok(())
+    }
+}
+
 // text rendered once into a texture
 pub struct TextTexture<'a> {
     texture: Texture<'a>,
@@ -174,10 +218,6 @@ impl<'a> TextTexture<'a> {
             width,
             height,
         })
-    }
-
-    pub fn width(&self) -> u32 {
-        self.width
     }
 
     // draw with top-left corner at (x, y)

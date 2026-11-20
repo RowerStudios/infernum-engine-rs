@@ -1,4 +1,4 @@
-use crate::modules::ui::{ArrowAnim, Button, ButtonArt, TextTexture};
+use crate::modules::ui::{ArrowAnim, Button, ButtonArt, ImageTexture, TextTexture};
 use sdl3::pixels::Color;
 use sdl3::render::{Canvas, TextureCreator};
 use sdl3::ttf::Font;
@@ -7,8 +7,12 @@ use std::error::Error;
 
 const BUTTON_WIDTH: f32 = 200.0;
 const BUTTON_HEIGHT: f32 = 60.0;
-const BUTTON_GAP: f32 = 80.0;
-const TITLE_MARGIN: f32 = 100.0;
+const BUTTON_GAP: f32 = 40.0;
+const LOGO: &str = "src/ui/inf_logo.png";
+const LOGO_GAP: f32 = 30.0;
+const LOGO_MARGIN: f32 = 10.0;
+const LOGO_MAX_W: f32 = 300.0;
+const LOGO_MAX_H: f32 = 100.0;
 
 pub enum MenuAction {
     None,
@@ -39,7 +43,7 @@ impl MenuState {
 
 // pre-rendered text and button art for the menu
 pub struct MenuTextures<'a> {
-    pub title: TextTexture<'a>,
+    pub title: ImageTexture<'a>,
     pub play: TextTexture<'a>,
     pub quit: TextTexture<'a>,
     pub buttons: ButtonArt<'a>,
@@ -48,11 +52,10 @@ pub struct MenuTextures<'a> {
 impl<'a> MenuTextures<'a> {
     pub fn new(
         creator: &'a TextureCreator<WindowContext>,
-        title_font: &Font,
         button_font: &Font,
     ) -> Result<Self, Box<dyn Error>> {
         Ok(Self {
-            title: TextTexture::new(creator, title_font, "inferno", Color::WHITE)?,
+            title: ImageTexture::load(creator, LOGO)?,
             play: TextTexture::new(creator, button_font, "play", Color::WHITE)?,
             quit: TextTexture::new(creator, button_font, "quit", Color::WHITE)?,
             buttons: ButtonArt::load(creator)?,
@@ -121,10 +124,23 @@ pub fn display(
 
     canvas.set_draw_color(Color::BLACK);
     canvas.clear();
-    textures.title.draw_at(
+
+    // scale the logo to fit above the play button
+    let native_w = textures.title.width() as f32;
+    let native_h = textures.title.height() as f32;
+    let max_w = (screen_w as f32 - 80.0).min(LOGO_MAX_W).max(0.0);
+    let max_h = (play.bounds.y - LOGO_GAP - LOGO_MARGIN)
+        .min(LOGO_MAX_H)
+        .max(0.0);
+    let scale = (max_w / native_w).min(max_h / native_h);
+    let logo_w = native_w * scale;
+    let logo_h = native_h * scale;
+    textures.title.draw_rect(
         canvas,
-        center_x - textures.title.width() as f32 / 2.0,
-        play.bounds.y - TITLE_MARGIN,
+        center_x - logo_w / 2.0,
+        play.bounds.y - LOGO_GAP - logo_h,
+        logo_w,
+        logo_h,
     )?;
     play.draw(
         canvas,
