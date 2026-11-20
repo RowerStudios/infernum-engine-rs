@@ -2,36 +2,71 @@ use sdl3::event::{Event, WindowEvent};
 use sdl3::keyboard::Keycode;
 use sdl3::mouse::MouseButton;
 use sdl3::video::FullscreenType;
+use std::ffi::CStr;
 
 mod modules {
     pub mod audio;
+    pub mod config;
     pub mod fonts;
     pub mod functions {
         pub mod fade;
     }
     pub mod mainmenu;
+    pub mod thirdparty {
+        pub mod discord;
+    }
     pub mod ui;
 }
 
 use crate::modules::audio::Sound;
+use crate::modules::config::{Config, WindowMode};
 use crate::modules::fonts::load_fonts;
+use crate::modules::functions::fade::{Fade, FadeDirection};
 use crate::modules::mainmenu::{MenuAction, MenuState, MenuTextures, display};
+use crate::modules::thirdparty::discord::Discord;
 
 const WINDOW_TITLE: &str = "inferno";
-const WINDOW_WIDTH: u32 = 800;
-const WINDOW_HEIGHT: u32 = 600;
+const CONFIG_PATH: &str = "src/config.toml";
 const FONT_DIR: &str = "src/fonts";
 const TITLE_FONT_SIZE: f32 = 40.0;
 const BUTTON_FONT_SIZE: f32 = 24.0;
 
 type GameResult<T> = Result<T, Box<dyn std::error::Error>>;
 
+// show available renderers so it is clear which one sdl picked
+fn print_render_drivers() {
+    let count = unsafe { sdl3::sys::render::SDL_GetNumRenderDrivers() };
+    let names: Vec<String> = (0..count)
+        .filter_map(|i| {
+            let ptr = unsafe { sdl3::sys::render::SDL_GetRenderDriver(i) };
+            (!ptr.is_null())
+                .then(|| unsafe { CStr::from_ptr(ptr) }.to_string_lossy().into_owned())
+        })
+        .collect();
+    println!(">> render drivers: {}", names.join(", "));
+}
+
 fn main() -> GameResult<()> {
     println!("🔥 inferno engine 🔥");
     println!(">> starting engine..");
 
+    let config = match Config::load(CONFIG_PATH) {
+        Ok(config) => {
+            println!(">> config loaded: {CONFIG_PATH}");
+            config
+        }
+        Err(err) => {
+            println!(">> config unavailable: {err}, using defaults");
+            Config::default()
+        }
+    };
+
     let sdl = sdl3::init()?;
     let video = sdl.video()?;
+    print_render_drivers();
+    // forced renderer from config, software stays as a fallback
+    let driver = format!("{},software", config.game.renderer());
+    sdl3::hint::set("SDL_RENDER_DRIVER", &driver);
     let ttf = sdl3::ttf::init().map_err(|e| e.to_string())?;
     println!(">> sdl3 + sdl3_ttf initialized!");
 
@@ -47,18 +82,47 @@ fn main() -> GameResult<()> {
         }
     };
 
-    let window = video
-        .window(WINDOW_TITLE, WINDOW_WIDTH, WINDOW_HEIGHT)
-        .position_centered()
-        .fullscreen()
-        .build()
-        .map_err(|e| e.to_string())?;
+    // discord rpc runs in the background, never blocks the window
+    let mut discord = match Discord::new(&config.discord_rpc.app_id) {
+        Ok(discord) => Some(discord),
+        Err(err) => {
+            println!(">> discord rpc unavailable: {err}");
+            None
+        }
+    };
+
+    let mode = config.game.window_mode();
+    let enforce_fullscreen = matches!(
+        mode,
+        WindowMode::Fullscreen | WindowMode::BorderlessFullscreen
+    );
+    let (width, height) = (config.game.width(), config.game.height());
+
+    let mut builder = video.window(WINDOW_TITLE, width, height);
+    match mode {
+        WindowMode::Windowed => {
+            builder.position_centered();
+        }
+        WindowMode::Fullscreen => {
+            builder.fullscreen();
+        }
+        WindowMode::BorderlessFullscreen => {
+            builder.fullscreen().borderless();
+        }
+        WindowMode::BorderlessWindowed => {
+            builder.borderless().position_centered();
+        }
+    }
+    let window = builder.build().map_err(|e| e.to_string())?;
     let mut canvas = window.into_canvas();
-    if canvas.window().fullscreen_state() == FullscreenType::Off {
+    println!(">> renderer: {}", canvas.renderer_name);
+    if canvas.renderer_name == "software" {
+        println!(">> warning: software renderer in use");
+    }
+    if enforce_fullscreen && canvas.window().fullscreen_state() == FullscreenType::Off {
         canvas.window_mut().set_fullscreen(true)?;
     }
     let texture_creator = canvas.texture_creator();
-
     let title_fonts = load_fonts(&ttf, FONT_DIR, TITLE_FONT_SIZE);
     let button_fonts = load_fonts(&ttf, FONT_DIR, BUTTON_FONT_SIZE);
     if title_fonts.is_empty() || button_fonts.is_empty() {
@@ -66,7 +130,9 @@ fn main() -> GameResult<()> {
     }
     println!(">> loaded {} fonts!", title_fonts.len() + button_fonts.len());
     // render text once, not every frame
-    let textures = MenuTextures::new(&texture_creator, &title_fonts[0], &button_fonts[0])?;
+    let mut textures = MenuTextures::new(&texture_creator, &title_fonts[0], &button_fonts[0])?;
+    let mut fade = Fade::new(800, FadeDirection::In, None);
+    fade.start();
     println!(">> starting game loop..");
     let mut menu_state = MenuState::new();
     let mut event_pump = sdl.event_pump()?;
@@ -90,7 +156,9 @@ fn main() -> GameResult<()> {
                     win_event: WindowEvent::LeaveFullscreen,
                     ..
                 } => {
-                    canvas.window_mut().set_fullscreen(true)?;
+                    if enforce_fullscreen {
+                        canvas.window_mut().set_fullscreen(true)?;
+                    }
                 }
                 Event::MouseMotion { x, y, .. } => {
                     mouse_x = x;
@@ -107,7 +175,7 @@ fn main() -> GameResult<()> {
         }
 
         // keep fullscreen even if a shortcut or the desktop tries to leave it
-        if canvas.window().fullscreen_state() == FullscreenType::Off {
+        if enforce_fullscreen && canvas.window().fullscreen_state() == FullscreenType::Off {
             canvas.window_mut().set_fullscreen(true)?;
         }
 
@@ -115,7 +183,7 @@ fn main() -> GameResult<()> {
             continue;
         }
 
-        match display(&mut canvas, mouse_x, mouse_y, click, &textures, &mut menu_state)? {
+        match display(&mut canvas, mouse_x, mouse_y, click, &mut textures, &mut menu_state)? {
             MenuAction::Play => {
                 if let Some(sound) = &sound
                     && let Err(err) = sound.play_click()
@@ -136,12 +204,22 @@ fn main() -> GameResult<()> {
             }
             MenuAction::None => {}
         }
+
+        fade.draw(&mut canvas)?;
+        canvas.present();
     }
 
     // close the window before waiting on the quit voice
     drop(textures);
     drop(texture_creator);
     drop(canvas);
+
+    if let Some(discord) = &mut discord
+        && let Err(err) = discord.clear()
+    {
+        println!(">> discord error: {err}");
+    }
+
     if quit_requested && let Some(sound) = &sound {
         match sound.play_quit_voice() {
             Ok(ms) => {

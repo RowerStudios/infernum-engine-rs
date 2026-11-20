@@ -9,6 +9,11 @@ sdl3 = { version = "0.22.1", features = ["ttf", "mixer"] }
 # build sdl3_ttf/sdl3_mixer locally since they are not installed system-wide
 sdl3-ttf-sys = { version = "0.7.1", features = ["build-from-source", "sdlttf-vendored"] }
 sdl3-mixer-sys = { version = "0.7.0", features = ["build-from-source", "sdlmixer-vendored"] }
+discord-rich-presence = "1.1.0"
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+# png decoding for ui art
+image = { version = "0.25", default-features = false, features = ["png"] }
 
 [[bin]]
 name = "game"

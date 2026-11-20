@@ -1,4 +1,4 @@
-use crate::modules::ui::{Button, TextTexture};
+use crate::modules::ui::{ArrowAnim, Button, ButtonArt, TextTexture};
 use sdl3::pixels::Color;
 use sdl3::render::{Canvas, TextureCreator};
 use sdl3::ttf::Font;
@@ -22,6 +22,8 @@ pub enum MenuAction {
 pub struct MenuState {
     play_hovered: bool,
     quit_hovered: bool,
+    play_anim: ArrowAnim,
+    quit_anim: ArrowAnim,
 }
 
 impl MenuState {
@@ -29,15 +31,18 @@ impl MenuState {
         Self {
             play_hovered: false,
             quit_hovered: false,
+            play_anim: ArrowAnim::new(),
+            quit_anim: ArrowAnim::new(),
         }
     }
 }
 
-// pre-rendered text for the menu
+// pre-rendered text and button art for the menu
 pub struct MenuTextures<'a> {
     pub title: TextTexture<'a>,
     pub play: TextTexture<'a>,
     pub quit: TextTexture<'a>,
+    pub buttons: ButtonArt<'a>,
 }
 
 impl<'a> MenuTextures<'a> {
@@ -50,6 +55,7 @@ impl<'a> MenuTextures<'a> {
             title: TextTexture::new(creator, title_font, "inferno", Color::WHITE)?,
             play: TextTexture::new(creator, button_font, "play", Color::WHITE)?,
             quit: TextTexture::new(creator, button_font, "quit", Color::WHITE)?,
+            buttons: ButtonArt::load(creator)?,
         })
     }
 }
@@ -60,7 +66,7 @@ pub fn display(
     mouse_x: f32,
     mouse_y: f32,
     click: Option<(f32, f32)>,
-    textures: &MenuTextures<'_>,
+    textures: &mut MenuTextures<'_>,
     state: &mut MenuState,
 ) -> Result<MenuAction, Box<dyn Error>> {
     let (screen_w, screen_h) = canvas.output_size()?;
@@ -79,28 +85,39 @@ pub fn display(
         BUTTON_WIDTH,
         BUTTON_HEIGHT,
     );
-
     let play_hovered = play.contains(mouse_x, mouse_y);
     let quit_hovered = quit.contains(mouse_x, mouse_y);
-
     let mut action = MenuAction::None;
     if play_hovered && !state.play_hovered {
         action = MenuAction::HoverPlay;
+        state.play_anim.hover();
     } else if quit_hovered && !state.quit_hovered {
         action = MenuAction::HoverQuit;
+        state.quit_anim.hover();
+    }
+    if !play_hovered && state.play_hovered {
+        state.play_anim.leave();
+    }
+    if !quit_hovered && state.quit_hovered {
+        state.quit_anim.leave();
     }
 
     if let Some((x, y)) = click {
         if play.contains(x, y) {
             println!(">> play clicked!");
             action = MenuAction::Play;
+            state.play_anim.press();
         } else if quit.contains(x, y) {
             action = MenuAction::Quit;
+            state.quit_anim.press();
         }
     }
 
     state.play_hovered = play_hovered;
     state.quit_hovered = quit_hovered;
+
+    let play_arrows = state.play_anim.frame(play_hovered);
+    let quit_arrows = state.quit_anim.frame(quit_hovered);
 
     canvas.set_draw_color(Color::BLACK);
     canvas.clear();
@@ -109,8 +126,19 @@ pub fn display(
         center_x - textures.title.width() as f32 / 2.0,
         play.bounds.y - TITLE_MARGIN,
     )?;
-    play.draw(canvas, play_hovered, &textures.play)?;
-    quit.draw(canvas, quit_hovered, &textures.quit)?;
-    canvas.present();
-    Ok(action)
+    play.draw(
+        canvas,
+        play_hovered,
+        &textures.play,
+        &mut textures.buttons,
+        play_arrows,
+    )?;
+    quit.draw(
+        canvas,
+        quit_hovered,
+        &textures.quit,
+        &mut textures.buttons,
+        quit_arrows,
+    )?;
+   Ok(action)
 }

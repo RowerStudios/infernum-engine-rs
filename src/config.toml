@@ -1,0 +1,9 @@
+[discord-rpc]
+app_id = "1496487190404796416"
+
+[game]
+window_mode = "0" # 1 = fullscreen , 2 = borderless_fullscreen , 0 = windows , 3 = borderless windowed
+# applies only when window_mode = 0 or 3
+window_width = "800" 
+window_height = "600"
+force_renderer = "1" # 0 = software , 1 = opengl , 2 = vulkan , 3 = directx (only windows)

@@ -6,13 +6,13 @@ const HOVER_PATH: &str = "src/sounds/UI/hover.ogg";
 const MUSIC_PATH: &str = "src/sounds/main_menu_mus.mp3";
 const VOICE_DIR: &str = "src/sounds/Voices/quit_voices";
 
-// ui sounds from files
+// audios must drop before mixer and context, MIX_Quit frees everything
 pub struct Sound {
-    mixer: Mixer,
-    _context: sdl3::mixer::MixerContext,
     click: Audio,
     hover: Audio,
     voices: Vec<Audio>,
+    mixer: Mixer,
+    _context: sdl3::mixer::MixerContext,
 }
 
 impl Sound {
