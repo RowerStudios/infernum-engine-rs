@@ -19,6 +19,7 @@ pub struct Game {
     pub window_width: String,
     pub window_height: String,
     pub force_renderer: String,
+    pub icon: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -40,6 +41,7 @@ impl Default for Config {
                 window_width: "800".to_string(),
                 window_height: "600".to_string(),
                 force_renderer: "1".to_string(),
+                icon: "icon.png".to_string(),
             },
         }
     }

@@ -14,6 +14,8 @@ serde = { version = "1", features = ["derive"] }
 toml = "0.8"
 # png decoding for ui art
 image = { version = "0.25", default-features = false, features = ["png"] }
+# glb loading and embedded texture decoding
+gltf = "1.4.1"
 
 [[bin]]
 name = "game"

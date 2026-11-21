@@ -2,6 +2,7 @@
 app_id = "1496487190404796416"
 
 [game]
+icon = "src/icon.png"
 window_mode = "0" # 1 = fullscreen , 2 = borderless_fullscreen , 0 = windows , 3 = borderless windowed
 # applies only when window_mode = 0 or 3
 window_width = "800" 

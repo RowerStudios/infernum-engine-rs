@@ -12,6 +12,11 @@ mod modules {
         pub mod fade;
     }
     pub mod mainmenu;
+    pub mod model;
+    pub mod scene_manager;
+    pub mod scenes {
+        pub mod prolouge;
+    }
     pub mod thirdparty {
         pub mod discord;
     }
@@ -23,6 +28,7 @@ use crate::modules::config::{Config, WindowMode};
 use crate::modules::fonts::load_font;
 use crate::modules::functions::fade::{Fade, FadeDirection};
 use crate::modules::mainmenu::{MenuAction, MenuState, MenuTextures, display};
+use crate::modules::scene_manager::{SceneId, SceneManager};
 use crate::modules::thirdparty::discord::Discord;
 
 const WINDOW_TITLE: &str = "inferno";
@@ -112,11 +118,34 @@ fn main() -> GameResult<()> {
             builder.borderless().position_centered();
         }
     }
-    let window = builder.build().map_err(|e| e.to_string())?;
+    let mut window = builder.build().map_err(|e| e.to_string())?;
+    // set window icon from config (best effort, absent/invalid icon is ignored)
+    if let Ok(img) = image::open(&config.game.icon) {
+        let rgba = img.to_rgba8();
+        let (iw, ih) = rgba.dimensions();
+        let mut pixels = rgba.into_raw();
+        if let Ok(surface) = sdl3::surface::Surface::from_data(
+            &mut pixels,
+            iw,
+            ih,
+            iw * 4,
+            sdl3::pixels::PixelFormat::RGBA32,
+        ) {
+            let _ = window.set_icon(&surface);
+            println!(">> icon loaded: {}", config.game.icon);
+        }
+    }
     let mut canvas = window.into_canvas();
     println!(">> renderer: {}", canvas.renderer_name);
     if canvas.renderer_name == "software" {
         println!(">> warning: software renderer in use");
+    }
+    // pace frames to the display refresh rate instead of a hardcoded value
+    let vsync_enabled = unsafe { sdl3::sys::render::SDL_SetRenderVSync(canvas.raw(), 1) };
+    if vsync_enabled {
+        println!(">> vsync enabled");
+    } else {
+        println!(">> vsync unavailable");
     }
     if enforce_fullscreen && canvas.window().fullscreen_state() == FullscreenType::Off {
         canvas.window_mut().set_fullscreen(true)?;
@@ -126,6 +155,7 @@ fn main() -> GameResult<()> {
     println!(">> loaded font: {FONT}");
     // render text once, not every frame
     let mut textures = MenuTextures::new(&texture_creator, &button_font)?;
+    let mut scenes = SceneManager::new();
     let mut fade = Fade::new(800, FadeDirection::In, None);
     fade.start();
     println!(">> starting game loop..");
@@ -178,26 +208,32 @@ fn main() -> GameResult<()> {
             continue;
         }
 
-        match display(&mut canvas, mouse_x, mouse_y, click, &mut textures, &mut menu_state)? {
-            MenuAction::Play => {
-                if let Some(sound) = &sound
-                    && let Err(err) = sound.play_click()
-                {
-                    println!(">> audio error: {err}");
+        match scenes.current() {
+            SceneId::Menu => {
+                match display(&mut canvas, mouse_x, mouse_y, click, &mut textures, &mut menu_state)? {
+                    MenuAction::Play => {
+                        if let Some(sound) = &sound
+                            && let Err(err) = sound.play_click()
+                        {
+                            println!(">> audio error: {err}");
+                        }
+                        scenes.enter(SceneId::Prologue, &texture_creator)?;
+                    }
+                    MenuAction::HoverPlay | MenuAction::HoverQuit => {
+                        if let Some(sound) = &sound
+                            && let Err(err) = sound.play_hover()
+                        {
+                            println!(">> audio error: {err}");
+                        }
+                    }
+                    MenuAction::Quit => {
+                        quit_requested = true;
+                        running = false;
+                    }
+                    MenuAction::None => {}
                 }
             }
-            MenuAction::HoverPlay | MenuAction::HoverQuit => {
-                if let Some(sound) = &sound
-                    && let Err(err) = sound.play_hover()
-                {
-                    println!(">> audio error: {err}");
-                }
-            }
-            MenuAction::Quit => {
-                quit_requested = true;
-                running = false;
-            }
-            MenuAction::None => {}
+            SceneId::Prologue => scenes.draw(&mut canvas)?,
         }
 
         fade.draw(&mut canvas)?;
@@ -205,6 +241,7 @@ fn main() -> GameResult<()> {
     }
 
     // close the window before waiting on the quit voice
+    drop(scenes);
     drop(textures);
     drop(texture_creator);
     drop(canvas);
