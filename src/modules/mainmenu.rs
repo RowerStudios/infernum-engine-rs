@@ -7,7 +7,7 @@ use std::error::Error;
 
 const BUTTON_WIDTH: f32 = 200.0;
 const BUTTON_HEIGHT: f32 = 60.0;
-const BUTTON_GAP: f32 = 40.0;
+const BUTTON_GAP: f32 = 30.0;
 const LOGO: &str = "src/ui/inf_logo.png";
 const LOGO_GAP: f32 = 30.0;
 const LOGO_MARGIN: f32 = 10.0;
@@ -17,16 +17,20 @@ const LOGO_MAX_H: f32 = 100.0;
 pub enum MenuAction {
     None,
     Play,
+    Settings,
     Quit,
     HoverPlay,
+    HoverSettings,
     HoverQuit,
 }
 
 // remembers last hover to catch enter events
 pub struct MenuState {
     play_hovered: bool,
+    settings_hovered: bool,
     quit_hovered: bool,
     play_anim: ArrowAnim,
+    settings_anim: ArrowAnim,
     quit_anim: ArrowAnim,
 }
 
@@ -34,8 +38,10 @@ impl MenuState {
     pub fn new() -> Self {
         Self {
             play_hovered: false,
+            settings_hovered: false,
             quit_hovered: false,
             play_anim: ArrowAnim::new(),
+            settings_anim: ArrowAnim::new(),
             quit_anim: ArrowAnim::new(),
         }
     }
@@ -45,6 +51,7 @@ impl MenuState {
 pub struct MenuTextures<'a> {
     pub title: ImageTexture<'a>,
     pub play: TextTexture<'a>,
+    pub settings: TextTexture<'a>,
     pub quit: TextTexture<'a>,
     pub buttons: ButtonArt<'a>,
 }
@@ -57,6 +64,7 @@ impl<'a> MenuTextures<'a> {
         Ok(Self {
             title: ImageTexture::load(creator, LOGO)?,
             play: TextTexture::new(creator, button_font, "play", Color::WHITE)?,
+            settings: TextTexture::new(creator, button_font, "settings", Color::WHITE)?,
             quit: TextTexture::new(creator, button_font, "quit", Color::WHITE)?,
             buttons: ButtonArt::load(creator)?,
         })
@@ -76,30 +84,40 @@ pub fn display(
     let center_x = screen_w as f32 / 2.0;
     let center_y = screen_h as f32 / 2.0;
     let button_x = center_x - BUTTON_WIDTH / 2.0;
-    let play = Button::new(
+    let total_h = BUTTON_HEIGHT * 3.0 + BUTTON_GAP * 2.0;
+    let top = center_y - total_h / 2.0;
+    let play = Button::new(button_x, top, BUTTON_WIDTH, BUTTON_HEIGHT);
+    let settings = Button::new(
         button_x,
-        center_y - BUTTON_GAP / 2.0 - BUTTON_HEIGHT,
+        top + BUTTON_HEIGHT + BUTTON_GAP,
         BUTTON_WIDTH,
         BUTTON_HEIGHT,
     );
     let quit = Button::new(
         button_x,
-        center_y + BUTTON_GAP / 2.0,
+        top + (BUTTON_HEIGHT + BUTTON_GAP) * 2.0,
         BUTTON_WIDTH,
         BUTTON_HEIGHT,
     );
     let play_hovered = play.contains(mouse_x, mouse_y);
+    let settings_hovered = settings.contains(mouse_x, mouse_y);
     let quit_hovered = quit.contains(mouse_x, mouse_y);
     let mut action = MenuAction::None;
     if play_hovered && !state.play_hovered {
         action = MenuAction::HoverPlay;
         state.play_anim.hover();
+    } else if settings_hovered && !state.settings_hovered {
+        action = MenuAction::HoverSettings;
+        state.settings_anim.hover();
     } else if quit_hovered && !state.quit_hovered {
         action = MenuAction::HoverQuit;
         state.quit_anim.hover();
     }
     if !play_hovered && state.play_hovered {
         state.play_anim.leave();
+    }
+    if !settings_hovered && state.settings_hovered {
+        state.settings_anim.leave();
     }
     if !quit_hovered && state.quit_hovered {
         state.quit_anim.leave();
@@ -110,6 +128,10 @@ pub fn display(
             println!(">> play clicked!");
             action = MenuAction::Play;
             state.play_anim.press();
+        } else if settings.contains(x, y) {
+            println!(">> settings clicked!");
+            action = MenuAction::Settings;
+            state.settings_anim.press();
         } else if quit.contains(x, y) {
             action = MenuAction::Quit;
             state.quit_anim.press();
@@ -117,9 +139,11 @@ pub fn display(
     }
 
     state.play_hovered = play_hovered;
+    state.settings_hovered = settings_hovered;
     state.quit_hovered = quit_hovered;
 
     let play_arrows = state.play_anim.frame(play_hovered);
+    let settings_arrows = state.settings_anim.frame(settings_hovered);
     let quit_arrows = state.quit_anim.frame(quit_hovered);
 
     canvas.set_draw_color(Color::BLACK);
@@ -149,6 +173,13 @@ pub fn display(
         &mut textures.buttons,
         play_arrows,
     )?;
+    settings.draw(
+        canvas,
+        settings_hovered,
+        &textures.settings,
+        &mut textures.buttons,
+        settings_arrows,
+    )?;
     quit.draw(
         canvas,
         quit_hovered,
@@ -156,5 +187,5 @@ pub fn display(
         &mut textures.buttons,
         quit_arrows,
     )?;
-   Ok(action)
+    Ok(action)
 }

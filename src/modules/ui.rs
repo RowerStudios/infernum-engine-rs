@@ -150,6 +150,66 @@ impl<'a> ButtonArt<'a> {
             arrow: load_png(creator, ARROW)?,
         })
     }
+
+    // draw art scaled uniformly to fit inside the rect, never squashed
+    pub fn draw_fit(
+        &self,
+        canvas: &mut Canvas<Window>,
+        hovered: bool,
+        rect: FRect,
+    ) -> Result<(), Box<dyn Error>> {
+        let texture = if hovered { &self.hover } else { &self.normal };
+        let query = texture.query();
+        let (w, h) = (query.width as f32, query.height as f32);
+        let scale = (rect.w / w).min(rect.h / h);
+        let dw = w * scale;
+        let dh = h * scale;
+        let dst = FRect::new(
+            rect.x + (rect.w - dw) / 2.0,
+            rect.y + (rect.h - dh) / 2.0,
+            dw,
+            dh,
+        );
+        canvas.copy(texture, None, Some(dst))?;
+        Ok(())
+    }
+
+    // draw the side arrows around a rect
+    pub fn draw_arrows(
+        &mut self,
+        canvas: &mut Canvas<Window>,
+        rect: FRect,
+        arrows: Option<(f32, f32)>,
+    ) -> Result<(), Box<dyn Error>> {
+        let Some((offset, alpha)) = arrows else {
+            return Ok(());
+        };
+        self.arrow.set_alpha_mod((alpha.clamp(0.0, 1.0) * 255.0) as u8);
+        let ay = rect.y + rect.h / 2.0 - ARROW_H / 2.0;
+        let left = FRect::new(
+            rect.x - ARROW_W - ARROW_GAP - offset,
+            ay,
+            ARROW_W,
+            ARROW_H,
+        );
+        canvas.copy(&self.arrow, None, Some(left))?;
+        let right = FRect::new(
+            rect.x + rect.w + ARROW_GAP + offset,
+            ay,
+            ARROW_W,
+            ARROW_H,
+        );
+        canvas.copy_ex(
+            &self.arrow,
+            None,
+            Some(right),
+            0.0,
+            None::<sdl3::render::FPoint>,
+            true,
+            false,
+        )?;
+        Ok(())
+    }
 }
 
 // png texture with its native size
@@ -210,7 +270,8 @@ impl<'a> TextTexture<'a> {
         text: &str,
         color: Color,
     ) -> Result<Self, Box<dyn Error>> {
-        let surface = font.render(text).blended(color)?;
+        // sdl_ttf rejects empty text, render a space instead
+        let surface = font.render(if text.is_empty() { " " } else { text }).blended(color)?;
         let (width, height) = surface.size();
         let texture = creator.create_texture_from_surface(&surface)?;
         Ok(Self {
@@ -218,6 +279,18 @@ impl<'a> TextTexture<'a> {
             width,
             height,
         })
+    }
+
+    pub fn set_alpha(&mut self, alpha: u8) {
+        self.texture.set_alpha_mod(alpha);
+    }
+
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+
+    pub fn height(&self) -> u32 {
+        self.height
     }
 
     // draw with top-left corner at (x, y)

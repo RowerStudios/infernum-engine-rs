@@ -44,6 +44,8 @@ impl Sound {
                 let track = mixer.create_track()?;
                 track.set_audio(&music)?;
                 track.set_loops(-1)?;
+                // tag lets us pause just the menu track
+                track.tag("menu_music")?;
                 track.play()?;
                 // mixer destroys the track when dropped
                 std::mem::forget(track);
@@ -68,6 +70,17 @@ impl Sound {
 
     pub fn play_hover(&self) -> Result<(), Box<dyn Error>> {
         self.mixer.play_audio(&self.hover)?;
+        Ok(())
+    }
+
+    // menu music only plays on the main menu
+    pub fn pause_music(&self) -> Result<(), Box<dyn Error>> {
+        self.mixer.pause_tag("menu_music")?;
+        Ok(())
+    }
+
+    pub fn resume_music(&self) -> Result<(), Box<dyn Error>> {
+        self.mixer.resume_tag("menu_music")?;
         Ok(())
     }
 

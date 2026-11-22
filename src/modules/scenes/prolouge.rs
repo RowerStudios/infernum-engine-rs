@@ -21,6 +21,15 @@ impl<'a> Prologue<'a> {
     pub fn new(creator: &'a TextureCreator<WindowContext>) -> Result<Self, Box<dyn Error>> {
         let start = Instant::now();
         let model = model::load(MODEL)?;
+        Self::from_model(creator, model, start)
+    }
+
+    // build a prologue from a model that was loaded elsewhere (loading scene)
+    pub fn from_model(
+        creator: &'a TextureCreator<WindowContext>,
+        model: model::Model,
+        start: Instant,
+    ) -> Result<Self, Box<dyn Error>> {
         let texture = match &model.texture {
             Some(image) => {
                 let mut pixels = image.rgba.clone();
